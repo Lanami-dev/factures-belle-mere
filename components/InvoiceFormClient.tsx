@@ -198,7 +198,6 @@ export function InvoiceFormClient({ config }: { config: PublicConfig }) {
             ref={fileInputRef}
             type="file"
             accept="image/*"
-            capture="environment"
             onChange={handleFileChange}
             className="hidden"
             id="photo-input"
@@ -239,8 +238,7 @@ export function InvoiceFormClient({ config }: { config: PublicConfig }) {
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
-                onChange={handleFileChange}
+                    onChange={handleFileChange}
                 className="hidden"
               />
             </div>
