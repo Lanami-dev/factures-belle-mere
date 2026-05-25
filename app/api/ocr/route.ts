@@ -25,11 +25,13 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer())
     const base64 = buffer.toString('base64')
 
+    console.log(`[ocr] traitement image type=${mediaType} size=${(file.size / 1024).toFixed(0)}KB`)
+
     const result = await extractHoursFromImage(base64, mediaType)
     return NextResponse.json(result)
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erreur inconnue lors de la lecture du carnet."
-    console.error('[ocr] erreur:', message)
+    console.error('[ocr] erreur:', message, err)
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }

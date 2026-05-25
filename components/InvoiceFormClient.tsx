@@ -43,6 +43,59 @@ function formatAmount(value: number): string {
   return value.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 }
 
+// Compression / redimensionnement via canvas pour rester sous la limite de 5 Mo
+// de l'API Anthropic Vision et garantir un JPEG standard envoyé au serveur.
+async function compressImage(blob: Blob, _name: string): Promise<Blob> {
+  const MAX_DIM = 2000
+  const QUALITY = 0.85
+
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob)
+    const img = new Image()
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+
+      let { width, height } = img
+      if (width > MAX_DIM || height > MAX_DIM) {
+        if (width >= height) {
+          height = Math.round((height * MAX_DIM) / width)
+          width = MAX_DIM
+        } else {
+          width = Math.round((width * MAX_DIM) / height)
+          height = MAX_DIM
+        }
+      }
+
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        reject(new Error("Impossible d'initialiser le canvas pour compresser l'image."))
+        return
+      }
+      ctx.drawImage(img, 0, 0, width, height)
+
+      canvas.toBlob(
+        (resultBlob) => {
+          if (!resultBlob) {
+            reject(new Error("Échec de la compression de l'image."))
+            return
+          }
+          resolve(resultBlob)
+        },
+        'image/jpeg',
+        QUALITY
+      )
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error("Impossible de lire la photo (format non supporté par ton navigateur)."))
+    }
+    img.src = url
+  })
+}
+
 export function InvoiceFormClient({ config }: { config: PublicConfig }) {
   const [step, setStep] = useState<Step>('idle')
   const [billingMonth, setBillingMonth] = useState<string>(currentBillingMonth())
@@ -68,8 +121,8 @@ export function InvoiceFormClient({ config }: { config: PublicConfig }) {
     setWarnings([])
 
     try {
-      // iOS prend les photos en HEIC par défaut, format non supporté par
-      // l'API Anthropic. On convertit en JPEG côté navigateur avant l'envoi.
+      // 1. iOS prend les photos en HEIC par défaut, format non supporté par
+      //    l'API Anthropic Vision. Tentative de conversion en JPEG.
       let payload: Blob = file
       let payloadName = file.name
       const isHeic =
@@ -78,15 +131,27 @@ export function InvoiceFormClient({ config }: { config: PublicConfig }) {
         /\.(heic|heif)$/i.test(file.name)
 
       if (isHeic) {
-        const heic2any = (await import('heic2any')).default
-        const converted = await heic2any({
-          blob: file,
-          toType: 'image/jpeg',
-          quality: 0.85
-        })
-        payload = Array.isArray(converted) ? converted[0] : converted
-        payloadName = file.name.replace(/\.(heic|heif)$/i, '.jpg') || 'photo.jpg'
+        try {
+          const heic2any = (await import('heic2any')).default
+          const converted = await heic2any({
+            blob: file,
+            toType: 'image/jpeg',
+            quality: 0.85
+          })
+          payload = Array.isArray(converted) ? converted[0] : converted
+          payloadName = file.name.replace(/\.(heic|heif)$/i, '.jpg') || 'photo.jpg'
+        } catch (heicErr) {
+          // Si la conversion HEIC échoue, on tente quand même la compression
+          // canvas qui peut décoder le HEIC sur iOS Safari récent.
+          console.warn('heic2any a échoué, fallback canvas', heicErr)
+        }
       }
+
+      // 2. Compression / redimensionnement via canvas pour rester sous la
+      //    limite de 5 Mo de l'API Anthropic Vision (les photos iPhone
+      //    peuvent atteindre 4-8 Mo en HD).
+      payload = await compressImage(payload, payloadName)
+      payloadName = payloadName.replace(/\.(heic|heif|png|webp)$/i, '.jpg')
 
       const formData = new FormData()
       formData.append('image', payload, payloadName)
