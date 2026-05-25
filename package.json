@@ -1,0 +1,35 @@
+{
+  "name": "factures-belle-mere",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Générateur de factures mensuelles pour Marion Brasier (auto-entrepreneuse, accompagnement à domicile). Lit une photo du carnet manuscrit et produit une facture PDF prête à envoyer.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/nunito-sans": "^5.2.7",
+    "@fontsource/playfair-display": "^5.2.8",
+    "@react-pdf/renderer": "^4.1.6",
+    "dotenv": "^17.4.2",
+    "next": "^14.2.35",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.10",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^14.2.35",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.13",
+    "typescript": "^5.6.2"
+  }
+}
