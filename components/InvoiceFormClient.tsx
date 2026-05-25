@@ -68,8 +68,28 @@ export function InvoiceFormClient({ config }: { config: PublicConfig }) {
     setWarnings([])
 
     try {
+      // iOS prend les photos en HEIC par défaut, format non supporté par
+      // l'API Anthropic. On convertit en JPEG côté navigateur avant l'envoi.
+      let payload: Blob = file
+      let payloadName = file.name
+      const isHeic =
+        file.type === 'image/heic' ||
+        file.type === 'image/heif' ||
+        /\.(heic|heif)$/i.test(file.name)
+
+      if (isHeic) {
+        const heic2any = (await import('heic2any')).default
+        const converted = await heic2any({
+          blob: file,
+          toType: 'image/jpeg',
+          quality: 0.85
+        })
+        payload = Array.isArray(converted) ? converted[0] : converted
+        payloadName = file.name.replace(/\.(heic|heif)$/i, '.jpg') || 'photo.jpg'
+      }
+
       const formData = new FormData()
-      formData.append('image', file)
+      formData.append('image', payload, payloadName)
 
       const res = await fetch('/api/ocr', { method: 'POST', body: formData })
       const data = await res.json()
@@ -284,10 +304,9 @@ export function InvoiceFormClient({ config }: { config: PublicConfig }) {
                           max="24"
                           value={entry.hours}
                           onChange={(e) => updateEntry(idx, { hours: parseFloat(e.target.value) || 0 })}
-                          className="input-field py-1.5 text-sm w-24"
+                          className="input-field py-1.5 text-sm w-20"
                           disabled={step !== 'reviewing'}
                         />
-                        <span className="ml-2 text-xs text-pierre">{formatHours(entry.hours)}</span>
                       </td>
                       <td className="py-2 pr-3 text-right tabular-nums">
                         {formatAmount(entry.hours * config.hourlyRate)}
